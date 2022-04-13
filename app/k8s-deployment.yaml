@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: nginx
-          image: fra.ocir.io/<DOCKER_OBJECT_STORAGE_NAMESPACE>/free-kubernetes-nginx:latest
+          image: arn.ocir.io/<DOCKER_OBJECT_STORAGE_NAMESPACE>/free-kubernetes-nginx:latest
           ports:
             - containerPort: 80
       imagePullSecrets:
