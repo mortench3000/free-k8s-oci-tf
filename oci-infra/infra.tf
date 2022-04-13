@@ -1,10 +1,19 @@
+terraform {
+  required_providers {
+    oci = {
+      source = "oracle/oci"
+      version = "4.70.0"
+    }
+  }
+}
+
 provider "oci" {
   region = var.region
 }
 
 module "vcn" {
   source  = "oracle-terraform-modules/vcn/oci"
-  version = "3.1.0"
+  version = "3.4.0"
 
   compartment_id = var.compartment_id
   region         = var.region
@@ -154,7 +163,7 @@ resource "oci_core_subnet" "vcn_public_subnet" {
 
 resource "oci_containerengine_cluster" "k8s_cluster" {
   compartment_id     = var.compartment_id
-  kubernetes_version = "v1.21.5"
+  kubernetes_version = "v1.22.5"
   name               = "free-k8s-cluster"
   vcn_id             = module.vcn.vcn_id
 
@@ -183,24 +192,16 @@ data "oci_identity_availability_domains" "ads" {
 resource "oci_containerengine_node_pool" "k8s_node_pool" {
   cluster_id         = oci_containerengine_cluster.k8s_cluster.id
   compartment_id     = var.compartment_id
-  kubernetes_version = "v1.21.5"
+  kubernetes_version = "v1.22.5"
   name               = "free-k8s-node-pool"
   node_config_details {
+    # Currently only one ad in region (eu-stockholm-1)
     placement_configs {
       availability_domain = data.oci_identity_availability_domains.ads.availability_domains[0].name
       subnet_id           = oci_core_subnet.vcn_private_subnet.id
     }
-    placement_configs {
-      availability_domain = data.oci_identity_availability_domains.ads.availability_domains[1].name
-      subnet_id           = oci_core_subnet.vcn_private_subnet.id
-    }
-    placement_configs {
-      availability_domain = data.oci_identity_availability_domains.ads.availability_domains[2].name
-      subnet_id           = oci_core_subnet.vcn_private_subnet.id
-    }
-    size = 2
-
-
+    # Node pool size = How many nodes in pool
+    size = 3
   }
   node_shape = "VM.Standard.A1.Flex"
 
@@ -210,7 +211,9 @@ resource "oci_containerengine_node_pool" "k8s_node_pool" {
   }
 
   node_source_details {
-    image_id    = "ocid1.image.oc1.eu-frankfurt-1.aaaaaaaabh7a24rl4qxunwziscawa4k65ar7ktdbbt4yf74hvcp7zipharhq"
+    # Oracle-Linux-8.5-aarch64-2022.02.25-0
+    # https://docs.oracle.com/en-us/iaas/images/
+    image_id    = "ocid1.image.oc1.eu-stockholm-1.aaaaaaaa55sei3qto77ppt4upezam2262oocszd5nd4ohqq47m36h53sx3ma"
     source_type = "image"
   }
 
@@ -219,13 +222,13 @@ resource "oci_containerengine_node_pool" "k8s_node_pool" {
     value = "free-k8s-cluster"
   }
 
+  # Only needed if you want to be able to ssh into the nodes
   ssh_public_key = var.ssh_public_key
 }
 
 resource "oci_artifacts_container_repository" "docker_repository" {
   compartment_id = var.compartment_id
   display_name   = "free-kubernetes-nginx"
-
   is_immutable = false
   is_public    = false
 }
